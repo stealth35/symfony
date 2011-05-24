@@ -2,5 +2,5 @@
 
 class Pearlike_Boz
 {
-    public static $loaded = true;
+	public static $loaded = true;
 }

@@ -2,5 +2,5 @@
 
 class Pearlike_Far
 {
-    public static $loaded = true;
+	public static $loaded = true;
 }
