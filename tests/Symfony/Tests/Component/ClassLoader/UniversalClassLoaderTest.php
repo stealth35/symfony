@@ -9,253 +9,180 @@
  * file that was distributed with this source code.
  */
 
-namespace Symfony\Component\ClassLoader;
+namespace Symfony\Tests\Component\ClassLoader;
 
-/**
- * UniversalClassLoader implements a "universal" autoloader for PHP 5.3.
- *
- * It is able to load classes that use either:
- *
- *  * The technical interoperability standards for PHP 5.3 namespaces and
- *    class names (http://groups.google.com/group/php-standards/web/psr-0-final-proposal);
- *
- *  * The PEAR naming convention for classes (http://pear.php.net/).
- *
- * Classes from a sub-namespace or a sub-hierarchy of PEAR classes can be
- * looked for in a list of locations to ease the vendoring of a sub-set of
- * classes for large projects.
- *
- * Example usage:
- *
- *     $loader = new UniversalClassLoader();
- *
- *     // register classes with namespaces
- *     $loader->registerNamespaces(array(
- *         'Symfony\Component' => __DIR__.'/component',
- *         'Symfony'           => __DIR__.'/framework',
- *         'Sensio'            => array(__DIR__.'/src', __DIR__.'/vendor'),
- *     ));
- *
- *     // register a library using the PEAR naming convention
- *     $loader->registerPrefixes(array(
- *         'Swift_' => __DIR__.'/Swift',
- *     ));
- *
- *     // activate the autoloader
- *     $loader->register();
- *
- * In this example, if you try to use a class in the Symfony\Component
- * namespace or one of its children (Symfony\Component\Console for instance),
- * the autoloader will first look for the class under the component/
- * directory, and it will then fallback to the framework/ directory if not
- * found before giving up.
- *
- * @author Fabien Potencier <fabien@symfony.com>
- *
- * @api
- */
-class UniversalClassLoader
+use Symfony\Component\ClassLoader\UniversalClassLoader;
+
+class UniversalClassLoaderTest extends \PHPUnit_Framework_TestCase
 {
-    private $namespaces = array();
-    private $prefixes = array();
-    private $namespaceFallback = array();
-    private $prefixFallback = array();
-
     /**
-     * Gets the configured namespaces.
-     *
-     * @return array A hash with namespaces as keys and directories as values
+     * @dataProvider getLoadClassTests
      */
-    public function getNamespaces()
+    public function testLoadClass($className, $testClassName, $message)
     {
-        return $this->namespaces;
+        $loader = new UniversalClassLoader();
+        $loader->registerNamespace('Namespaced', __DIR__.DIRECTORY_SEPARATOR.'Fixtures');
+        $loader->registerPrefix('Pearlike_', __DIR__.DIRECTORY_SEPARATOR.'Fixtures');
+        $loader->loadClass($testClassName);
+        $this->assertTrue(class_exists($className), $message);
+    }
+
+    public function getLoadClassTests()
+    {
+        return array(
+            array('\\Namespaced\\Foo', 'Namespaced\\Foo',   '->loadClass() loads Namespaced\Foo class'),
+            array('\\Pearlike_Foo',    'Pearlike_Foo',      '->loadClass() loads Pearlike_Foo class'),
+            array('\\Namespaced\\Bar', '\\Namespaced\\Bar', '->loadClass() loads Namespaced\Bar class with a leading slash'),
+            array('\\Pearlike_Bar',    '\\Pearlike_Bar',    '->loadClass() loads Pearlike_Bar class with a leading slash'),
+        );
     }
 
     /**
-     * Gets the configured class prefixes.
-     *
-     * @return array A hash with class prefixes as keys and directories as values
+     * @dataProvider getLoadClassWithExtensionTests
      */
-    public function getPrefixes()
+    public function testLoadClassWithExtension($className, $testClassName, $message)
     {
-        return $this->prefixes;
+        $loader = new UniversalClassLoader();
+        $loader->registerNamespace('Namespaced', __DIR__.DIRECTORY_SEPARATOR.'Fixtures');
+        $loader->registerPrefix('Pearlike_', __DIR__.DIRECTORY_SEPARATOR.'Fixtures');
+        $loader->registerExtension('.class.php');
+        $loader->registerExtension('.inc');
+        $loader->registerExtensions(array('.inc.php', '.lib.php'));
+        $loader->loadClass($testClassName);
+        $this->assertTrue(class_exists($className), $message);
+    }
+
+    public function getLoadClassWithExtensionTests()
+    {
+        return array(
+            array('\\Namespaced\\Foz', 'Namespaced\\Foz',   '->loadClass() loads Namespaced\Foz class'),
+            array('\\Pearlike_Far',    'Pearlike_Far',      '->loadClass() loads Pearlike_Far class'),
+            array('\\Namespaced\\Boo', '\\Namespaced\\Boo', '->loadClass() loads Namespaced\Boo class with a leading slash'),
+            array('\\Pearlike_Boz',    '\\Pearlike_Boz',    '->loadClass() loads Pearlike_Boz class with a leading slash'),
+        );;
     }
 
     /**
-     * Gets the directory(ies) to use as a fallback for namespaces.
-     *
-     * @return array An array of directories
+     * @dataProvider getLoadClassFromFallbackTests
      */
-    public function getNamespaceFallback()
+    public function testLoadClassFromFallback($className, $testClassName, $message)
     {
-        return $this->namespaceFallback;
+        $loader = new UniversalClassLoader();
+        $loader->registerNamespace('Namespaced', __DIR__.DIRECTORY_SEPARATOR.'Fixtures');
+        $loader->registerPrefix('Pearlike_', __DIR__.DIRECTORY_SEPARATOR.'Fixtures');
+        $loader->registerNamespaceFallback(__DIR__.DIRECTORY_SEPARATOR.'Fixtures/fallback');
+        $loader->registerPrefixFallback(__DIR__.DIRECTORY_SEPARATOR.'Fixtures/fallback');
+        $loader->loadClass($testClassName);
+        $this->assertTrue(class_exists($className), $message);
+    }
+
+    public function getLoadClassFromFallbackTests()
+    {
+        return array(
+            array('\\Namespaced\\Baz',    'Namespaced\\Baz',    '->loadClass() loads Namespaced\Baz class'),
+            array('\\Pearlike_Baz',       'Pearlike_Baz',       '->loadClass() loads Pearlike_Baz class'),
+            array('\\Namespaced\\FooBar', 'Namespaced\\FooBar', '->loadClass() loads Namespaced\Baz class from fallback dir'),
+            array('\\Pearlike_FooBar',    'Pearlike_FooBar',    '->loadClass() loads Pearlike_Baz class from fallback dir'),
+        );
     }
 
     /**
-     * Gets the directory(ies) to use as a fallback for class prefixes.
-     *
-     * @return array An array of directories
+     * @dataProvider getLoadClassNamespaceCollisionTests
      */
-    public function getPrefixFallback()
+    public function testLoadClassNamespaceCollision($namespaces, $className, $message)
     {
-        return $this->prefixFallback;
+        $loader = new UniversalClassLoader();
+        $loader->registerNamespaces($namespaces);
+
+        $loader->loadClass($className);
+        $this->assertTrue(class_exists($className), $message);
+    }
+
+    public function getLoadClassNamespaceCollisionTests()
+    {
+        return array(
+            array(
+                array(
+                    'NamespaceCollision\\A' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/alpha',
+                    'NamespaceCollision\\A\\B' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/beta',
+                ),
+                'NamespaceCollision\A\Foo',
+                '->loadClass() loads NamespaceCollision\A\Foo from alpha.',
+            ),
+            array(
+                array(
+                    'NamespaceCollision\\A\\B' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/beta',
+                    'NamespaceCollision\\A' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/alpha',
+                ),
+                'NamespaceCollision\A\Bar',
+                '->loadClass() loads NamespaceCollision\A\Bar from alpha.',
+            ),
+            array(
+                array(
+                    'NamespaceCollision\\A' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/alpha',
+                    'NamespaceCollision\\A\\B' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/beta',
+                ),
+                'NamespaceCollision\A\B\Foo',
+                '->loadClass() loads NamespaceCollision\A\B\Foo from beta.',
+            ),
+            array(
+                array(
+                    'NamespaceCollision\\A\\B' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/beta',
+                    'NamespaceCollision\\A' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/alpha',
+                ),
+                'NamespaceCollision\A\B\Bar',
+                '->loadClass() loads NamespaceCollision\A\B\Bar from beta.',
+            ),
+        );
     }
 
     /**
-     * Registers the directory to use as a fallback for namespaces.
-     *
-     * @param string|array $dirs A directory path or an array of directories
-     *
-     * @api
+     * @dataProvider getLoadClassPrefixCollisionTests
      */
-    public function registerNamespaceFallback($dirs)
+    public function testLoadClassPrefixCollision($prefixes, $className, $message)
     {
-        $this->namespaceFallback = (array) $dirs;
+        $loader = new UniversalClassLoader();
+        $loader->registerPrefixes($prefixes);
+
+        $loader->loadClass($className);
+        $this->assertTrue(class_exists($className), $message);
     }
 
-    /**
-     * Registers the directory to use as a fallback for class prefixes.
-     *
-     * @param string|array $dirs A directory path or an array of directories
-     *
-     * @api
-     */
-    public function registerPrefixFallback($dirs)
+    public function getLoadClassPrefixCollisionTests()
     {
-        $this->prefixFallback = (array) $dirs;
-    }
-
-    /**
-     * Registers an array of namespaces
-     *
-     * @param array $namespaces An array of namespaces (namespaces as keys and locations as values)
-     *
-     * @api
-     */
-    public function registerNamespaces(array $namespaces)
-    {
-        foreach ($namespaces as $namespace => $locations) {
-            $this->namespaces[$namespace] = (array) $locations;
-        }
-    }
-
-    /**
-     * Registers a namespace.
-     *
-     * @param string       $namespace The namespace
-     * @param array|string $paths     The location(s) of the namespace
-     *
-     * @api
-     */
-    public function registerNamespace($namespace, $paths)
-    {
-        $this->namespaces[$namespace] = (array) $paths;
-    }
-
-    /**
-     * Registers an array of classes using the PEAR naming convention.
-     *
-     * @param array $classes An array of classes (prefixes as keys and locations as values)
-     *
-     * @api
-     */
-    public function registerPrefixes(array $classes)
-    {
-        foreach ($classes as $prefix => $locations) {
-            $this->prefixes[$prefix] = (array) $locations;
-        }
-    }
-
-    /**
-     * Registers a set of classes using the PEAR naming convention.
-     *
-     * @param string       $prefix  The classes prefix
-     * @param array|string $paths   The location(s) of the classes
-     *
-     * @api
-     */
-    public function registerPrefix($prefix, $paths)
-    {
-        $this->prefixes[$prefix] = (array) $paths;
-    }
-
-    /**
-     * Registers this instance as an autoloader.
-     *
-     * @param Boolean $prepend Whether to prepend the autoloader or not
-     *
-     * @api
-     */
-    public function register($prepend = false)
-    {
-        spl_autoload_register(array($this, 'loadClass'), true, $prepend);
-    }
-
-    /**
-     * Loads the given class or interface.
-     *
-     * @param string $class The name of the class
-     */
-    public function loadClass($class)
-    {
-        if ($file = $this->findFile($class)) {
-            require $file;
-        }
-    }
-
-    /**
-     * Finds the path to the file where the class is defined.
-     *
-     * @param string $class The name of the class
-     *
-     * @return string|null The path, if found
-     */
-    public function findFile($class)
-    {
-        if ('\\' == $class[0]) {
-            $class = substr($class, 1);
-        }
-
-        if (false !== $pos = strrpos($class, '\\')) {
-            // namespaced class name
-            $namespace = substr($class, 0, $pos);
-            foreach ($this->namespaces as $ns => $dirs) {
-                foreach ($dirs as $dir) {
-                    if (0 === strpos($namespace, $ns)) {
-                        $className = substr($class, $pos + 1);
-                        $file = $dir.DIRECTORY_SEPARATOR.str_replace('\\', DIRECTORY_SEPARATOR, $namespace).DIRECTORY_SEPARATOR.str_replace('_', DIRECTORY_SEPARATOR, $className).'.php';
-                        if (file_exists($file)) {
-                            return $file;
-                        }
-                    }
-                }
-            }
-
-            foreach ($this->namespaceFallback as $dir) {
-                $file = $dir.DIRECTORY_SEPARATOR.str_replace('\\', DIRECTORY_SEPARATOR, $class).'.php';
-                if (file_exists($file)) {
-                    return $file;
-                }
-            }
-        } else {
-            // PEAR-like class name
-            foreach ($this->prefixes as $prefix => $dirs) {
-                foreach ($dirs as $dir) {
-                    if (0 === strpos($class, $prefix)) {
-                        $file = $dir.DIRECTORY_SEPARATOR.str_replace('_', DIRECTORY_SEPARATOR, $class).'.php';
-                        if (file_exists($file)) {
-                            return $file;
-                        }
-                    }
-                }
-            }
-
-            foreach ($this->prefixFallback as $dir) {
-                $file = $dir.DIRECTORY_SEPARATOR.str_replace('_', DIRECTORY_SEPARATOR, $class).'.php';
-                if (file_exists($file)) {
-                    return $file;
-                }
-            }
-        }
+        return array(
+            array(
+                array(
+                    'PrefixCollision_A_' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/alpha',
+                    'PrefixCollision_A_B_' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/beta',
+                ),
+                'PrefixCollision_A_Foo',
+                '->loadClass() loads PrefixCollision_A_Foo from alpha.',
+            ),
+            array(
+                array(
+                    'PrefixCollision_A_B_' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/beta',
+                    'PrefixCollision_A_' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/alpha',
+                ),
+                'PrefixCollision_A_Bar',
+                '->loadClass() loads PrefixCollision_A_Bar from alpha.',
+            ),
+            array(
+                array(
+                    'PrefixCollision_A_' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/alpha',
+                    'PrefixCollision_A_B_' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/beta',
+                ),
+                'PrefixCollision_A_B_Foo',
+                '->loadClass() loads PrefixCollision_A_B_Foo from beta.',
+            ),
+            array(
+                array(
+                    'PrefixCollision_A_B_' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/beta',
+                    'PrefixCollision_A_' => __DIR__.DIRECTORY_SEPARATOR.'Fixtures/alpha',
+                ),
+                'PrefixCollision_A_B_Bar',
+                '->loadClass() loads PrefixCollision_A_B_Bar from beta.',
+            ),
+        );
     }
 }
