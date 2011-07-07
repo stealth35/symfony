@@ -16,12 +16,16 @@ use Symfony\Component\Config\Resource\FileResource;
 /**
  * CsvFileLoader loads translations from CSV files.
  *
- * @author Saša Stamenković <umpirsky@gmail.com>
+ * @author Saša Stamenkovic <umpirsky@gmail.com>
  *
  * @api
  */
 class CsvFileLoader extends ArrayLoader implements LoaderInterface
 {
+    protected $delimiter = ';';
+    protected $enclosure = '"';
+    protected $escape    = '\\';
+
     /**
      * {@inheritdoc}
      *
@@ -38,7 +42,7 @@ class CsvFileLoader extends ArrayLoader implements LoaderInterface
         }
 
         $file->setFlags(\SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY);
-        $file->setCsvControl(';');
+        $file->setCsvControl($this->delimiter, $this->enclosure, $this->escape);
 
         foreach($file as $data) {
             if (substr($data[0], 0, 1) === '#') {
@@ -60,5 +64,19 @@ class CsvFileLoader extends ArrayLoader implements LoaderInterface
         $catalogue->addResource(new FileResource($resource));
 
         return $catalogue;
+    }
+
+    /**
+     * Set the delimiter and enclosure character for CSV
+     *
+     * @param string $delimiter delimiter character
+     * @param string $enclosure enclosure character
+     * @param string $escape    escape character     * 
+     */
+    public function control($delimiter = ';', $enclosure = '"', $escape = '\\')
+    {
+        $this->delimiter = $delimiter;
+        $this->enclosure = $enclosure;
+        $this->escape    = $escape;
     }
 }
