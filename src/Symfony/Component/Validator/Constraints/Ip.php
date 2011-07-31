@@ -12,14 +12,18 @@
 namespace Symfony\Component\Validator\Constraints;
 
 use Symfony\Component\Validator\Exception\ConstraintDefinitionException;
+use Symfony\Component\Validator\Constraint;
 
 /**
  * Validates that a value is a valid IP address
  *
+ * @Annotation
  * @author Bernhard Schussek <bernhard.schussek@symfony.com>
  * @author Joseph Bielawski <stloyd@gmail.com>
+ *
+ * @api
  */
-class Ip extends \Symfony\Component\Validator\Constraint
+class Ip extends Constraint
 {
     const V4 = '4';
     const V6 = '6';
@@ -63,7 +67,7 @@ class Ip extends \Symfony\Component\Validator\Constraint
     public $message = 'This is not a valid IP address';
 
     /**
-     * @inheritDoc
+     * {@inheritDoc}
      */
     public function __construct($options = null)
     {
@@ -72,13 +76,5 @@ class Ip extends \Symfony\Component\Validator\Constraint
         if (!in_array($this->version, self::$versions)) {
             throw new ConstraintDefinitionException(sprintf('The option "version" must be one of "%s"', implode('", "', self::$versions)));
         }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function getTargets()
-    {
-        return self::PROPERTY_CONSTRAINT;
     }
 }

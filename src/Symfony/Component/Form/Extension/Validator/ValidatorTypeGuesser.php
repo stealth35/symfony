@@ -28,7 +28,7 @@ class ValidatorTypeGuesser implements FormTypeGuesserInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritDoc}
      */
     public function guessType($class, $property)
     {
@@ -40,7 +40,7 @@ class ValidatorTypeGuesser implements FormTypeGuesserInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritDoc}
      */
     public function guessRequired($class, $property)
     {
@@ -52,7 +52,7 @@ class ValidatorTypeGuesser implements FormTypeGuesserInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritDoc}
      */
     public function guessMaxLength($class, $property)
     {
@@ -64,7 +64,7 @@ class ValidatorTypeGuesser implements FormTypeGuesserInterface
     }
 
     /**
-     * @inheritDoc
+     * {@inheritDoc}
      */
     public function guessMinLength($class, $property)
     {
@@ -124,12 +124,6 @@ class ValidatorTypeGuesser implements FormTypeGuesserInterface
                         );
                 }
                 break;
-            case 'Symfony\Component\Validator\Constraints\Choice':
-                return new TypeGuess(
-                    'choice',
-                    array('choices' => $constraint->choices),
-                    Guess::HIGH_CONFIDENCE
-                );
             case 'Symfony\Component\Validator\Constraints\Country':
                 return new TypeGuess(
                     'country',

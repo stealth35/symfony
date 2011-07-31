@@ -14,20 +14,40 @@ namespace Symfony\Component\Validator\Constraints;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 
+/**
+ * @api
+ */
 class TrueValidator extends ConstraintValidator
 {
+    /**
+     * Checks if the passed value is valid.
+     *
+     * @param mixed      $value      The value that should be validated
+     * @param Constraint $constraint The constrain for the validation
+     *
+     * @return Boolean Whether or not the value is valid
+     *
+     * @api
+     */
     public function isValid($value, Constraint $constraint)
     {
         if (null === $value) {
             return true;
         }
 
+<<<<<<< HEAD
         if (true !== filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)) {
             $this->setMessage($constraint->message);
 
             return false;
+=======
+        if (true === $value || 1 === $value || '1' === $value) {
+            return true;
+>>>>>>> upstream/master
         }
 
-        return true;
+        $this->setMessage($constraint->message);
+
+        return false;
     }
 }

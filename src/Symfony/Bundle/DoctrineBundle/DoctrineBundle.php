@@ -13,7 +13,6 @@ namespace Symfony\Bundle\DoctrineBundle;
 
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Bundle\DoctrineBundle\DependencyInjection\Compiler\RegisterEventListenersAndSubscribersPass;
-use Symfony\Bundle\DoctrineBundle\DependencyInjection\Compiler\AddValidatorNamespaceAliasPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
@@ -30,6 +29,32 @@ class DoctrineBundle extends Bundle
         parent::build($container);
 
         $container->addCompilerPass(new RegisterEventListenersAndSubscribersPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION);
-        $container->addCompilerPass(new AddValidatorNamespaceAliasPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION);
+    }
+
+    public function boot()
+    {
+        // force Doctrine annotations to be loaded
+        // should be removed when a better solution is found in Doctrine
+        class_exists('Doctrine\ORM\Mapping\Driver\AnnotationDriver');
+
+        // Register an autoloader for proxies to avoid issues when unserializing them
+        // when the ORM is used.
+        if ($this->container->hasParameter('doctrine.orm.proxy_namespace')) {
+            $namespace = $this->container->getParameter('doctrine.orm.proxy_namespace');
+            $dir = $this->container->getParameter('doctrine.orm.proxy_dir');
+
+            spl_autoload_register(function($class) use ($namespace, $dir) {
+                if (0 === strpos($class, $namespace)) {
+                    $className = substr($class, strlen($namespace) +1);
+                    $file = $dir.DIRECTORY_SEPARATOR.$className.'.php';
+
+                    if (!file_exists($file)) {
+                        throw new \RuntimeException(sprintf('The proxy file "%s" does not exist. If you still have objects serialized in the session, you need to clear the session manually.', $file));
+                    }
+
+                    require $file;
+                }
+            });
+        }
     }
 }

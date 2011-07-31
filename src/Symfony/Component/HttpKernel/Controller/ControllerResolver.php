@@ -22,6 +22,8 @@ use Symfony\Component\HttpFoundation\Request;
  * the controller method arguments.
  *
  * @author Fabien Potencier <fabien@symfony.com>
+ *
+ * @api
  */
 class ControllerResolver implements ControllerResolverInterface
 {
@@ -49,18 +51,20 @@ class ControllerResolver implements ControllerResolverInterface
      *                       or false if this resolver is not able to determine the controller
      *
      * @throws \InvalidArgumentException|\LogicException If the controller can't be found
+     *
+     * @api
      */
     public function getController(Request $request)
     {
         if (!$controller = $request->attributes->get('_controller')) {
             if (null !== $this->logger) {
-                $this->logger->err('Unable to look for the controller as the "_controller" parameter is missing');
+                $this->logger->warn('Unable to look for the controller as the "_controller" parameter is missing');
             }
 
             return false;
         }
 
-        if (is_array($controller) || method_exists($controller, '__invoke')) {
+        if (is_array($controller) || ((is_object($controller) || false === strpos($controller, ':')) && method_exists($controller, '__invoke'))) {
             return $controller;
         }
 
@@ -68,10 +72,6 @@ class ControllerResolver implements ControllerResolverInterface
 
         if (!method_exists($controller, $method)) {
             throw new \InvalidArgumentException(sprintf('Method "%s::%s" does not exist.', get_class($controller), $method));
-        }
-
-        if (null !== $this->logger) {
-            $this->logger->info(sprintf('Using controller "%s::%s"', get_class($controller), $method));
         }
 
         return array($controller, $method);
@@ -84,6 +84,8 @@ class ControllerResolver implements ControllerResolverInterface
      * @param mixed   $controller A PHP callable
      *
      * @throws \RuntimeException When value for argument given is not provided
+     *
+     * @api
      */
     public function getArguments(Request $request, $controller)
     {
