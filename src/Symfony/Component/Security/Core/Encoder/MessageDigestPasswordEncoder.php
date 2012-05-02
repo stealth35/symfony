@@ -41,16 +41,19 @@ class MessageDigestPasswordEncoder extends BasePasswordEncoder
      */
     public function encodePassword($raw, $salt)
     {
-        if (!in_array($this->algorithm, hash_algos(), true)) {
+        $inHash = in_array($this->algorithm, hash_algos(), true);
+        $inOpenssl = function_exists('openssl_get_md_methods') ? in_array($this->algorithm, openssl_get_md_methods(true), true) : false;
+
+        if (!$inHash && !$inOpenssl) {
             throw new \LogicException(sprintf('The algorithm "%s" is not supported.', $this->algorithm));
         }
 
         $salted = $this->mergePasswordAndSalt($raw, $salt);
-        $digest = hash($this->algorithm, $salted, true);
+        $digest = $inHash ?  hash($this->algorithm, $salted, true) : openssl_digest($salted, $this->algorithm, true);
 
         // "stretch" hash
         for ($i = 1; $i < $this->iterations; $i++) {
-            $digest = hash($this->algorithm, $digest.$salted, true);
+            $digest = $inHash ?  hash($this->algorithm, $digest.$salted, true) : openssl_digest($digest.$salted, $this->algorithm, true);
         }
 
         return $this->encodeHashAsBase64 ? base64_encode($digest) : bin2hex($digest);

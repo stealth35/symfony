@@ -32,6 +32,19 @@ class MessageDigestPasswordEncoderTest extends \PHPUnit_Framework_TestCase
 
         $encoder = new MessageDigestPasswordEncoder('sha256', false, 2);
         $this->assertSame(hash('sha256', hash('sha256', 'password', true).'password'), $encoder->encodePassword('password', ''));
+
+        if (!function_exists('openssl_get_md_methods')) {
+            $this->markTestSkipped('OpenSSL extension is not available.');
+        }
+
+        $encoder = new MessageDigestPasswordEncoder('DSA', false, 1);
+        $this->assertSame(openssl_digest('password', 'DSA'), $encoder->encodePassword('password', ''));
+
+        $encoder = new MessageDigestPasswordEncoder('DSA', true, 1);
+        $this->assertSame(base64_encode(openssl_digest('password', 'DSA', true)), $encoder->encodePassword('password', ''));
+
+        $encoder = new MessageDigestPasswordEncoder('DSA', false, 2);
+        $this->assertSame(openssl_digest(openssl_digest('password', 'DSA', true).'password', 'DSA'), $encoder->encodePassword('password', ''));
     }
 
     /**
